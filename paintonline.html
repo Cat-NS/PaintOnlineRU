@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Paint Online — Windows 11 Edition</title>
+    <!-- Fabric.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #1c1c1c;
+            font-family: 'Segoe UI', 'Segoe UI Variable', 'Helvetica Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .win11-app {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(25px);
+            border-radius: 20px;
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+            width: 1400px;
+            max-width: 98vw;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            background: rgba(245, 245, 245, 0.75);
+            backdrop-filter: blur(15px);
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            row-gap: 10px;
+            overflow-y: auto;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px 12px;
+            border-radius: 40px;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .tool-btn {
+            background: transparent;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 12px;
+            transition: 0.1s linear;
+            color: #1e1e1e;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .tool-btn i {
+            font-size: 1.2rem;
+        }
+
+        .tool-btn:hover {
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .tool-btn.active {
+            background: #0078d4;
+            color: white;
+        }
+
+        input#brushColor, input#fillColor, input#strokeColor {
+            width: 40px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .range-label {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .main-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 8px;
+            padding: 16px;
+        }
+
+        .canvas-container-wrapper {
+            flex: 3;
+            background: #e9e9e9;
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        #canvas {
+            border-radius: 16px;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+            background-color: white;
+            cursor: crosshair;
+        }
+
+        .sticker-panel {
+            flex: 1;
+            background: rgba(245, 245, 245, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 40px;
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 0.9rem;
+            background: transparent;
+        }
+
+        .search-box button {
+            background: #0078d4;
+            border: none;
+            color: white;
+            border-radius: 30px;
+            padding: 6px 14px;
+            cursor: pointer;
+        }
+
+        .gif-grid, .stickers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .gif-item, .sticker-item {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gif-item img, .sticker-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .drag-zone-info {
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.05);
+            padding: 8px;
+            border-radius: 20px;
+            text-align: center;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="win11-app">
+    <div class="toolbar">
+        <div class="tool-group">
+            <button id="brushBtn" class="tool-btn active" title="Кисть"><i class="fas fa-paintbrush"></i> Кисть</button>
+            <button id="selectBtn" class="tool-btn" title="Выделение"><i class="fas fa-arrows-alt"></i> Выделение</button>
+            <button id="deleteObjBtn" class="tool-btn" title="Удалить"><i class="fas fa-trash-can"></i> Удалить</button>
+            <button id="clearCanvasBtn" class="tool-btn" title="Очистить всё"><i class="fas fa-eraser"></i> Очистить</button>
+        </div>
+        <div class="tool-group">
+            <label><i class="fas fa-palette"></i> Кисть:</label>
+            <input type="color" id="brushColor" value="#000000">
+            <input type="range" id="brushSize" min="1" max="40" value="5" style="width:80px">
+            <span id="sizeValue">5px</span>
+        </div>
+        <div class="tool-group">
+            <label><i class="fas fa-fill-drip"></i> Заливка/Фигура:</label>
+            <input type="color" id="fillColor" value="#ffcc00">
+            <input type="color" id="strokeColor" value="#000000">
+            <input type="range" id="shapeOpacity" min="0" max="1" step="0.05" value="1" style="width:70px">
+            <span id="opacityVal">1</span>
+        </div>
+        <div class="tool-group">
+            <button id="floodFillBtn" class="tool-btn" title="Заливка (кликните по области)"><i class="fas fa-fill"></i> Заливка</button>
+            <button id="rectBtn" class="tool-btn" title="Прямоугольник"><i class="fas fa-square"></i> Прям.</button>
+            <button id="ellipseBtn" class="tool-btn" title="Эллипс"><i class="fas fa-circle"></i> Эллипс</button>
+            <button id="lineBtn" class="tool-btn" title="Линия"><i class="fas fa-slash"></i> Линия</button>
+            <button id="triangleBtn" class="tool-btn" title="Треугольник"><i class="fas fa-play"></i> Треугольник</button>
+            <button id="starBtn" class="tool-btn" title="Звезда"><i class="fas fa-star"></i> Звезда</button>
+        </div>
+        <div class="tool-group">
+            <button id="undoBtn" class="tool-btn"><i class="fas fa-undo-alt"></i> Undo</button>
+            <button id="redoBtn" class="tool-btn"><i class="fas fa-redo-alt"></i> Redo</button>
+            <button id="resizeCanvasBtn" class="tool-btn"><i class="fas fa-expand-alt"></i> Размер</button>
+        </div>
+        <div class="tool-group">
+            <button id="exportPngBtn" class="tool-btn"><i class="fas fa-file-image"></i> PNG</button>
+            <button id="exportJpgBtn" class="tool-btn"><i class="fas fa-camera"></i> JPG</button>
+            <button id="exportBmpBtn" class="tool-btn"><i class="fas fa-file-image"></i> BMP</button>
+            <button id="exportIcoBtn" class="tool-btn"><i class="fas fa-file"></i> ICO</button>
+        </div>
+        <div class="tool-group">
+            <button id="addTextBtn" class="tool-btn"><i class="fas fa-font"></i> Текст</button>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <div class="canvas-container-wrapper" id="canvasContainer">
+            <canvas id="canvas" width="900" height="550" style="width:900px; height:550px;"></canvas>
+        </div>
+        <div class="sticker-panel">
+            <div class="drag-zone-info"><i class="fas fa-cloud-upload-alt"></i> Перетащите изображение сюда или на холст</div>
+            <div class="search-box">
+                <i class="fab fa-gripfire" style="color:#0078d4;"></i>
+                <input type="text" id="gifSearchInput" placeholder="Поиск GIF (GIPHY)">
+                <button id="searchGifBtn"><i class="fas fa-search"></i> Найти</button>
+            </div>
+            <div class="section-title"><i class="fas fa-sticker-mosaic"></i> Гифки / Наклейки</div>
+            <div id="gifResults" class="gif-grid"><div>🔍 Поиск...</div></div>
+            <hr>
+            <div class="section-title"><i class="fas fa-icons"></i> Эмодзи-стикеры</div>
+            <div id="stickersGrid" class="stickers-grid"></div>
+            <div class="section-title"><i class="fas fa-images"></i> Загрузить фото</div>
+            <div style="display:flex; gap:10px;">
+                <label class="tool-btn" style="background:#e6e6e6;"><i class="fas fa-folder-open"></i> Выбрать<input type="file" id="uploadImageInput" accept="image/*" style="display:none;"></label>
+                <button id="loadBgBtn" class="tool-btn" style="background:#e6e6e6;"><i class="fas fa-layer-group"></i> Как фон</button>
+            </div>
+            <div class="drag-zone-info">⌨️ Ctrl+Z / Ctrl+X / Del | Инструменты: заливка (клик), фигуры</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- INIT FABRIC ----------
+    const canvas = new fabric.Canvas('canvas', { backgroundColor: 'white', preserveObjectStacking: true, width: 900, height: 550 });
+    canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+    canvas.freeDrawingBrush.color = '#000000';
+    canvas.freeDrawingBrush.width = 5;
+    canvas.isDrawingMode = true;
+
+    // DOM elements
+    const brushBtn = document.getElementById('brushBtn');
+    const selectBtn = document.getElementById('selectBtn');
+    const deleteObjBtn = document.getElementById('deleteObjBtn');
+    const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+    const brushColor = document.getElementById('brushColor');
+    const brushSize = document.getElementById('brushSize');
+    const sizeSpan = document.getElementById('sizeValue');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const resizeCanvasBtn = document.getElementById('resizeCanvasBtn');
+    const exportPng = document.getElementById('exportPngBtn');
+    const exportJpg = document.getElementById('exportJpgBtn');
+    const exportBmp = document.getElementById('exportBmpBtn');
+    const exportIco = document.getElementById('exportIcoBtn');
+    const addTextBtn = document.getElementById('addTextBtn');
+    const floodFillBtn = document.getElementById('floodFillBtn');
+    const rectBtn = document.getElementById('rectBtn');
+    const ellipseBtn = document.getElementById('ellipseBtn');
+    const lineBtn = document.getElementById('lineBtn');
+    const triangleBtn = document.getElementById('triangleBtn');
+    const starBtn = document.getElementById('starBtn');
+    const fillColor = document.getElementById('fillColor');
+    const strokeColor = document.getElementById('strokeColor');
+    const shapeOpacity = document.getElementById('shapeOpacity');
+    const opacityVal = document.getElementById('opacityVal');
+
+    let activeShapeTool = null; // 'rect', 'ellipse', 'line', 'triangle', 'star'
+    let isDrawingShape = false;
+    let startPointer = null;
+    let currentShape = null;
+
+    // Update brush
+    function updateBrush() {
+        canvas.freeDrawingBrush.color = brushColor.value;
+        canvas.freeDrawingBrush.width = parseInt(brushSize.value, 10);
+        sizeSpan.innerText = canvas.freeDrawingBrush.width + 'px';
+    }
+    brushColor.addEventListener('input', updateBrush);
+    brushSize.addEventListener('input', updateBrush);
+    updateBrush();
+    shapeOpacity.addEventListener('input', () => { opacityVal.innerText = shapeOpacity.value; });
+
+    // Modes
+    function setDrawingMode() {
+        canvas.isDrawingMode = true;
+        brushBtn.classList.add('active');
+        selectBtn.classList.remove('active');
+        floodFillBtn.classList.remove('active');
+        activeShapeTool = null;
+        canvas.selection = false;
+        canvas.forEachObject(obj => obj.selectable = false);
+        canvas.renderAll();
+    }
+    function setSelectMode() {
+        canvas.isDrawingMode = false;
+        selectBtn.classList.add('active');
+        brushBtn.classList.remove('active');
+        floodFillBtn.classList.remove('active');
+        activeShapeTool = null;
+        canvas.selection = true;
+        canvas.forEachObject(obj => obj.selectable = true);
+        canvas.renderAll();
+    }
+    brushBtn.addEventListener('click', setDrawingMode);
+    selectBtn.addEventListener('click', setSelectMode);
+    
+    // Flood fill tool: временная растеризация + заливка
+    floodFillBtn.addEventListener('click', () => {
+        setSelectMode(); // выключаем рисование
+        floodFillBtn.classList.add('active');
+        activeShapeTool = null;
+        canvas.isDrawingMode = false;
+        canvas.selection = false;
+        canvas.forEachObject(obj => obj.selectable = false);
+        alert('Инструмент "Заливка": кликните в любую область холста, чтобы залить её цветом (цвет заливки выбран выше). Работает с учётом всех объектов.');
+    });
+
+    async function floodFillAt(x, y, fillHex) {
+        // Получаем цвет заливки из пикера
+        const fillRGB = hexToRgb(fillHex);
+        // Сохраняем все объекты
+        const objectsJSON = canvas.toJSON(['selectable', 'hasControls']);
+        // Временный canvas для растеризации
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        // Рисуем текущий холст
+        ctx.drawImage(canvas.getElement(), 0, 0);
+        const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const targetColor = getPixelColor(imageData, x, y);
+        if (colorsEqual(targetColor, fillRGB)) return;
+        // Выполняем flood fill (рекурсивный стек)
+        const stack = [{x, y}];
+        const visited = new Set();
+        const width = imageData.width, height = imageData.height;
+        while (stack.length) {
+            const {x: px, y: py} = stack.pop();
+            const key = `${px},${py}`;
+            if (visited.has(key)) continue;
+            if (px < 0 || px >= width || py < 0 || py >= height) continue;
+            const currentPixel = getPixelColor(imageData, px, py);
+            if (!colorsEqual(currentPixel, targetColor)) continue;
+            visited.add(key);
+            setPixelColor(imageData, px, py, fillRGB);
+            stack.push({x: px+1, y: py}, {x: px-1, y: py}, {x: px, y: py+1}, {x: px, y: py-1});
+        }
+        ctx.putImageData(imageData, 0, 0);
+        // Получаем новый DataURL
+        const newDataURL = tempCanvas.toDataURL('image/png');
+        // Загружаем как фоновое изображение
+        fabric.Image.fromURL(newDataURL, (img) => {
+            canvas.clear();
+            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                scaleX: canvas.width / img.width,
+                scaleY: canvas.height / img.height,
+                originX: 'left', originY: 'top', left: 0, top: 0
+            });
+            // Восстанавливаем объекты
+            canvas.loadFromJSON(objectsJSON, () => {
+                canvas.renderAll();
+                saveState();
+            });
+        });
+    }
+
+    function hexToRgb(hex) {
+        let r = parseInt(hex.slice(1,3), 16);
+        let g = parseInt(hex.slice(3,5), 16);
+        let b = parseInt(hex.slice(5,7), 16);
+        return {r,g,b,a:255};
+    }
+    function getPixelColor(imageData, x, y) {
+        const idx = (y * imageData.width + x) * 4;
+        return { r: imageData.data[idx], g: imageData.data[idx+1], b: imageData.data[idx+2], a: imageData.data[idx+3] };
+    }
+    function setPixelColor(imageData, x, y, rgb) {
+        const idx = (y * imageData.width + x) * 4;
+        imageData.data[idx] = rgb.r;
+        imageData.data[idx+1] = rgb.g;
+        imageData.data[idx+2] = rgb.b;
+        imageData.data[idx+3] = 255;
+    }
+    function colorsEqual(c1, c2) {
+        return c1.r === c2.r && c1.g === c2.g && c1.b === c2.b;
+    }
+
+    canvas.on('mouse:down', (e) => {
+        if (floodFillBtn.classList.contains('active')) {
+            const pointer = canvas.getPointer(e.e);
+            floodFillAt(Math.floor(pointer.x), Math.floor(pointer.y), fillColor.value);
+            floodFillBtn.classList.remove('active');
+            setSelectMode();
+            return;
+        }
+        // Рисование фигур
+        if (activeShapeTool && !canvas.isDrawingMode) {
+            e.e.preventDefault();
+            isDrawingShape = true;
+            startPointer = canvas.getPointer(e.e);
+            const opts = {
+                left: startPointer.x,
+                top: startPointer.y,
+                fill: fillColor.value,
+                stroke: strokeColor.value,
+                strokeWidth: 2,
+                opacity: parseFloat(shapeOpacity.value),
+                selectable: true,
+                hasControls: true
+            };
+            if (activeShapeTool === 'rect') {
+                currentShape = new fabric.Rect({ width: 0, height: 0, ...opts });
+            } else if (activeShapeTool === 'ellipse') {
+                currentShape = new fabric.Ellipse({ rx: 0, ry: 0, ...opts });
+            } else if (activeShapeTool === 'line') {
+                currentShape = new fabric.Line([startPointer.x, startPointer.y, startPointer.x, startPointer.y], { ...opts, strokeWidth: 3 });
+            } else if (activeShapeTool === 'triangle') {
+                currentShape = new fabric.Triangle({ width: 0, height: 0, ...opts });
+            } else if (activeShapeTool === 'star') {
+                // Звезда через polygon
+                currentShape = null; // отложим
+            }
+            if (currentShape) canvas.add(currentShape);
+        }
+    });
+    canvas.on('mouse:move', (e) => {
+        if (!isDrawingShape || !currentShape) return;
+        const pointer = canvas.getPointer(e.e);
+        let left = startPointer.x, top = startPointer.y;
+        let width = Math.abs(pointer.x - startPointer.x);
+        let height = Math.abs(pointer.y - startPointer.y);
+        if (activeShapeTool === 'rect') {
+            currentShape.set({ width, height, left: Math.min(startPointer.x, pointer.x), top: Math.min(startPointer.y, pointer.y) });
+        } else if (activeShapeTool === 'ellipse') {
+            currentShape.set({ rx: width/2, ry: height/2, left: (startPointer.x + pointer.x)/2, top: (startPointer.y + pointer.y)/2 });
+        } else if (activeShapeTool === 'line') {
+            currentShape.set({ x2: pointer.x, y2: pointer.y });
+        } else if (activeShapeTool === 'triangle') {
+            currentShape.set({ width, height, left: Math.min(startPointer.x, pointer.x), top: Math.min(startPointer.y, pointer.y) });
+        }
+        canvas.renderAll();
+    });
+    canvas.on('mouse:up', () => {
+        if (isDrawingShape && currentShape) {
+            if ((activeShapeTool === 'rect' || activeShapeTool === 'triangle') && currentShape.width * currentShape.height === 0) {
+                canvas.remove(currentShape);
+            } else if (activeShapeTool === 'ellipse' && currentShape.rx === 0) {
+                canvas.remove(currentShape);
+            } else if (activeShapeTool === 'line' && currentShape.x1 === currentShape.x2 && currentShape.y1 === currentShape.y2) {
+                canvas.remove(currentShape);
+            } else {
+                saveState();
+            }
+            currentShape = null;
+        }
+        isDrawingShape = false;
+    });
+
+    function setShapeTool(tool) {
+        setSelectMode();
+        activeShapeTool = tool;
+        floodFillBtn.classList.remove('active');
+        brushBtn.classList.remove('active');
+    }
+    rectBtn.addEventListener('click', () => setShapeTool('rect'));
+    ellipseBtn.addEventListener('click', () => setShapeTool('ellipse'));
+    lineBtn.addEventListener('click', () => setShapeTool('line'));
+    triangleBtn.addEventListener('click', () => setShapeTool('triangle'));
+    starBtn.addEventListener('click', () => {
+        setShapeTool('star');
+        // Звезда: создаём по клику-перетаскиванию через polygon
+        // Переопределим функционал для звезды
+        activeShapeTool = 'star';
+        alert('Нарисуйте звезду перетаскиванием: кликните и тяните');
+    });
+    // Обработка звезды отдельно
+    canvas.on('mouse:up', (e) => {
+        if (!isDrawingShape && activeShapeTool === 'star' && startPointer) {
+            const pointer = canvas.getPointer(e.e);
+            const x1 = startPointer.x, y1 = startPointer.y, x2 = pointer.x, y2 = pointer.y;
+            const centerX = (x1 + x2)/2, centerY = (y1 + y2)/2;
+            const outerRadius = Math.hypot(x2-x1, y2-y1)/2;
+            const innerRadius = outerRadius * 0.4;
+            const points = [];
+            const spikes = 5;
+            for (let i = 0; i < spikes * 2; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (Math.PI * 2 * i) / (spikes * 2) - Math.PI/2;
+                const px = centerX + radius * Math.cos(angle);
+                const py = centerY + radius * Math.sin(angle);
+                points.push({x: px, y: py});
+            }
+            const starPoly = new fabric.Polygon(points, {
+                fill: fillColor.value,
+                stroke: strokeColor.value,
+                strokeWidth: 2,
+                opacity: parseFloat(shapeOpacity.value),
+                selectable: true,
+                hasControls: true
+            });
+            canvas.add(starPoly);
+            startPointer = null;
+            saveState();
+            activeShapeTool = null;
+            setSelectMode();
+        } else if (activeShapeTool === 'star' && !isDrawingShape) {
+            startPointer = null;
+        }
+    });
+    canvas.on('mouse:down', (e) => {
+        if (activeShapeTool === 'star' && !canvas.isDrawingMode) {
+            startPointer = canvas.getPointer(e.e);
+            isDrawingShape = true;
+            e.e.preventDefault();
+        }
+    });
+    canvas.on('mouse:move', (e) => {
+        if (activeShapeTool === 'star' && isDrawingShape) {
+            // визуальный фидбек - рисуем временную звезду
+            const pointer = canvas.getPointer(e.e);
+            if (window._tempStar) canvas.remove(window._tempStar);
+            const x1 = startPointer.x, y1 = startPointer.y, x2 = pointer.x, y2 = pointer.y;
+            const centerX = (x1 + x2)/2, centerY = (y1 + y2)/2;
+            const outerRadius = Math.hypot(x2-x1, y2-y1)/2;
+            const innerRadius = outerRadius * 0.4;
+            const points = [];
+            for (let i = 0; i < 10; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (Math.PI * 2 * i) / 10 - Math.PI/2;
+                points.push({x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle)});
+            }
+            window._tempStar = new fabric.Polygon(points, { fill: fillColor.value, stroke: strokeColor.value, strokeWidth: 2, opacity: 0.6 });
+            canvas.add(window._tempStar);
+            canvas.renderAll();
+        }
+    });
+    canvas.on('mouse:up', (e) => {
+        if (activeShapeTool === 'star' && isDrawingShape) {
+            if (window._tempStar) canvas.remove(window._tempStar);
+            const pointer = canvas.getPointer(e.e);
+            const x1 = startPointer.x, y1 = startPointer.y, x2 = pointer.x, y2 = pointer.y;
+            const centerX = (x1 + x2)/2, centerY = (y1 + y2)/2;
+            const outerRadius = Math.hypot(x2-x1, y2-y1)/2;
+            if (outerRadius > 5) {
+                const innerRadius = outerRadius * 0.4;
+                const points = [];
+                for (let i = 0; i < 10; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (Math.PI * 2 * i) / 10 - Math.PI/2;
+                    points.push({x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle)});
+                }
+                const starPoly = new fabric.Polygon(points, {
+                    fill: fillColor.value, stroke: strokeColor.value, strokeWidth: 2,
+                    opacity: parseFloat(shapeOpacity.value), selectable: true
+                });
+                canvas.add(starPoly);
+                saveState();
+            }
+            isDrawingShape = false;
+            startPointer = null;
+            activeShapeTool = null;
+            setSelectMode();
+        }
+    });
+
+    // Delete, clear, text
+    deleteObjBtn.addEventListener('click', () => {
+        const obj = canvas.getActiveObject();
+        if (obj) { canvas.remove(obj); canvas.discardActiveObject(); canvas.renderAll(); saveState(); }
+        else alert("Выберите объект");
+    });
+    clearCanvasBtn.addEventListener('click', () => {
+        canvas.clear();
+        canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
+        canvas.renderAll();
+        saveState();
+    });
+    addTextBtn.addEventListener('click', () => {
+        const text = new fabric.IText('Новый текст', { left: 100, top: 100, fontSize: 28, fill: brushColor.value });
+        canvas.add(text);
+        canvas.setActiveObject(text);
+        saveState();
+    });
+    resizeCanvasBtn.addEventListener('click', () => {
+        let w = prompt("Ширина:", canvas.width);
+        let h = prompt("Высота:", canvas.height);
+        if (w && h) { canvas.setWidth(parseInt(w)); canvas.setHeight(parseInt(h)); canvas.renderAll(); saveState(); }
+    });
+
+    // UNDO/REDO system
+    let historyStack = [];
+    let historyIndex = -1;
+    function saveState() {
+        const json = JSON.stringify(canvas.toJSON(['selectable', 'hasControls']));
+        if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
+        historyStack.push(json);
+        if (historyStack.length > 50) historyStack.shift();
+        historyIndex = historyStack.length - 1;
+        updateUndoRedo();
+    }
+    function loadState(json) { canvas.loadFromJSON(json, () => canvas.renderAll()); }
+    function undo() { if (historyIndex > 0) { historyIndex--; loadState(historyStack[historyIndex]); updateUndoRedo(); } }
+    function redo() { if (historyIndex < historyStack.length - 1) { historyIndex++; loadState(historyStack[historyIndex]); updateUndoRedo(); } }
+    function updateUndoRedo() { undoBtn.disabled = (historyIndex <= 0); redoBtn.disabled = (historyIndex >= historyStack.length - 1); }
+    canvas.on('object:added', saveState); canvas.on('object:removed', saveState); canvas.on('object:modified', saveState); canvas.on('path:created', saveState);
+    saveState();
+    undoBtn.addEventListener('click', undo); redoBtn.addEventListener('click', redo);
+
+    // Hotkeys
+    window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+        if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
+        if (e.key === 'Delete') { const obj = canvas.getActiveObject(); if (obj) { canvas.remove(obj); canvas.renderAll(); saveState(); } }
+        if (e.ctrlKey && e.key === 'x') { const obj = canvas.getActiveObject(); if (obj) { obj.clone(cl => window._clip = cl); canvas.remove(obj); saveState(); } }
+        if (e.ctrlKey && e.key === 'v') { if (window._clip) { window._clip.clone(cl => { cl.set({ left: canvas.width/2, top: canvas.height/2 }); canvas.add(cl); canvas.setActiveObject(cl); saveState(); }); } }
+    });
+    canvas.getElement().setAttribute('tabindex', '0');
+    canvas.getElement().style.outline = 'none';
+
+    // Export
+    function exportImage(format, ext) {
+        let name = prompt("Имя файла:", "paint");
+        if (!name) return;
+        let dataURL;
+        if (format === 'jpg') { let tmp = document.createElement('canvas'); tmp.width = canvas.width; tmp.height = canvas.height; tmp.getContext('2d').fillStyle='white'; tmp.getContext('2d').fillRect(0,0,tmp.width,tmp.height); tmp.getContext('2d').drawImage(canvas.getElement(),0,0); dataURL = tmp.toDataURL('image/jpeg',0.95); }
+        else if (format === 'bmp') { try { dataURL = canvas.toDataURL('image/bmp'); } catch(e) { dataURL = canvas.toDataURL('image/png'); ext='bmp'; } }
+        else if (format === 'ico') { dataURL = canvas.toDataURL('image/png'); ext='ico'; }
+        else dataURL = canvas.toDataURL('image/png');
+        let a = document.createElement('a'); a.download = `${name}.${ext}`; a.href = dataURL; a.click();
+    }
+    exportPng.addEventListener('click', () => exportImage('png','png'));
+    exportJpg.addEventListener('click', () => exportImage('jpg','jpg'));
+    exportBmp.addEventListener('click', () => exportImage('bmp','bmp'));
+    exportIco.addEventListener('click', () => exportImage('ico','ico'));
+
+    // GIF / Stickers / Upload
+    const GIPHY_API_KEY = 'dc6zaTOxFJmzC';
+    async function searchGiphy(q) { if(!q) return;
+        gifResultsDiv.innerHTML = '<div>Загрузка...</div>';
+        let res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=20`);
+        let data = await res.json();
+        if(data.data) displayGifs(data.data); else gifResultsDiv.innerHTML = '<div>Не найдено</div>';
+    }
+    function displayGifs(gifs) { gifResultsDiv.innerHTML = '';
+        gifs.forEach(g => { let div = document.createElement('div'); div.className='gif-item'; let img=document.createElement('img'); img.src=g.images.fixed_height_small.url; div.appendChild(img); div.onclick=()=>addImageFromUrl(g.images.fixed_height.url); gifResultsDiv.appendChild(div); });
+    }
+    function addImageFromUrl(url) { fabric.Image.fromURL(url, (img) => { let scale=Math.min(300/img.width,300/img.height,1); img.scale(scale); img.set({ left:canvas.width/2, top:canvas.height/2 }); canvas.add(img); saveState(); }); }
+    document.getElementById('searchGifBtn').addEventListener('click', () => searchGiphy(document.getElementById('gifSearchInput').value));
+    searchGiphy('cute cat');
+    const stickersGrid = document.getElementById('stickersGrid');
+    ['❤️','🔥','⭐','👍','😂','😍','🎨','🌈','✨','🍕','🐱','🐶','🐼'].forEach(emoji => {
+        let canvasEm = document.createElement('canvas'); canvasEm.width=100; canvasEm.height=100; let ctx=canvasEm.getContext('2d'); ctx.fillStyle='white'; ctx.fillRect(0,0,100,100); ctx.font='60px "Segoe UI Emoji"'; ctx.fillStyle='black'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(emoji,50,55);
+        let url = canvasEm.toDataURL(); let div = document.createElement('div'); div.className='sticker-item'; let img=document.createElement('img'); img.src=url; div.appendChild(img); div.onclick=()=>addImageFromUrl(url); stickersGrid.appendChild(div);
+    });
+    function handleFile(file) { let reader = new FileReader(); reader.onload = e => { fabric.Image.fromURL(e.target.result, img => { let scale=Math.min(350/img.width,350/img.height,1); img.scale(scale); img.set({ left:canvas.width/2, top:canvas.height/2 }); canvas.add(img); saveState(); }); }; reader.readAsDataURL(file); }
+    document.getElementById('uploadImageInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+    document.getElementById('loadBgBtn').addEventListener('click', () => { let inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=e=>{ let file=e.target.files[0]; let r=new FileReader(); r.onload=ev=>{ fabric.Image.fromURL(ev.target.result, img=>{ canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), { scaleX:canvas.width/img.width, scaleY:canvas.height/img.height }); saveState(); }); }; r.readAsDataURL(file); }; inp.click(); });
+    const dropZone = document.getElementById('canvasContainer');
+    canvas.getElement().addEventListener('dragover', e=>e.preventDefault()); canvas.getElement().addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    dropZone.addEventListener('dragover', e=>e.preventDefault()); dropZone.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    setDrawingMode();
+</script>
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Paint Online — Windows 11 Edition</title>
+    <!-- Fabric.js для работы с canvas и объектами -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <!-- Font Awesome 6 (иконки Windows 11 стиля) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* улучшение для интерфейса, но не мешает вводу текста */
+        }
+
+        body {
+            background: #1c1c1c;
+            font-family: 'Segoe UI', 'Segoe UI Variable', 'Segoe UI Variable Display', 'Helvetica Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Главное окно в стиле Windows 11 */
+        .win11-app {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(25px);
+            border-radius: 20px;
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+            width: 1400px;
+            max-width: 98vw;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        /* Верхняя панель (акрил) */
+        .toolbar {
+            background: rgba(245, 245, 245, 0.75);
+            backdrop-filter: blur(15px);
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            row-gap: 10px;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px 12px;
+            border-radius: 40px;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .tool-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 12px;
+            transition: 0.1s linear;
+            color: #1e1e1e;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .tool-btn i {
+            font-size: 1.2rem;
+        }
+
+        .tool-btn:hover {
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .tool-btn.active {
+            background: #0078d4;
+            color: white;
+        }
+
+        .color-preview {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+
+        input#brushColor {
+            width: 40px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .range-label {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* Основной контент: canvas + панель стикеров */
+        .main-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 8px;
+            padding: 16px;
+        }
+
+        .canvas-container-wrapper {
+            flex: 3;
+            background: #e9e9e9;
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        #canvas {
+            border-radius: 16px;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+            background-color: white;
+            cursor: crosshair;
+        }
+
+        /* Панель наклеек / гифок - стиль Windows 11 */
+        .sticker-panel {
+            flex: 1;
+            background: rgba(245, 245, 245, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 40px;
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 0.9rem;
+            background: transparent;
+            font-family: inherit;
+        }
+
+        .search-box button {
+            background: #0078d4;
+            border: none;
+            color: white;
+            border-radius: 30px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .gif-grid, .stickers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .gif-item, .sticker-item {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gif-item img, .sticker-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .gif-item:hover, .sticker-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #202020;
+            margin: 6px 0 4px 0;
+            letter-spacing: -0.2px;
+        }
+
+        hr {
+            margin: 8px 0;
+            border-color: rgba(0,0,0,0.1);
+        }
+
+        .drag-zone-info {
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.05);
+            padding: 8px;
+            border-radius: 20px;
+            text-align: center;
+            color: #3a3a3a;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c0c0c0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="win11-app">
+    <!-- Верхняя панель инструментов Windows 11 -->
+    <div class="toolbar">
+        <div class="tool-group">
+            <button id="brushBtn" class="tool-btn active" title="Кисть (рисование)"><i class="fas fa-paintbrush"></i> <span>Кисть</span></button>
+            <button id="selectBtn" class="tool-btn" title="Выделение / перемещение"><i class="fas fa-arrows-alt"></i> <span>Выделение</span></button>
+            <button id="deleteObjBtn" class="tool-btn" title="Удалить выбранный объект"><i class="fas fa-trash-can"></i> <span>Удалить</span></button>
+            <button id="clearCanvasBtn" class="tool-btn" title="Очистить всё"><i class="fas fa-eraser"></i> <span>Очистить</span></button>
+        </div>
+        <div class="tool-group">
+            <label style="display:flex; align-items:center; gap:5px;"><i class="fas fa-palette"></i> Цвет:</label>
+            <input type="color" id="brushColor" value="#000000">
+            <label class="range-label"><i class="fas fa-circle"></i> Размер:</label>
+            <input type="range" id="brushSize" min="1" max="40" value="5" style="width:100px;">
+            <span id="sizeValue" style="min-width: 30px;">5px</span>
+        </div>
+        <div class="tool-group">
+            <button id="undoBtn" class="tool-btn" title="Отменить (Ctrl+Z)"><i class="fas fa-undo-alt"></i> Undo</button>
+            <button id="redoBtn" class="tool-btn" title="Повторить (Ctrl+Y)"><i class="fas fa-redo-alt"></i> Redo</button>
+            <button id="resizeCanvasBtn" class="tool-btn" title="Изменить размер холста"><i class="fas fa-expand-alt"></i> Размер</button>
+        </div>
+        <div class="tool-group">
+            <button id="exportPngBtn" class="tool-btn"><i class="fas fa-file-image"></i> PNG</button>
+            <button id="exportJpgBtn" class="tool-btn"><i class="fas fa-camera"></i> JPG</button>
+            <button id="exportBmpBtn" class="tool-btn"><i class="fas fa-file-image"></i> BMP</button>
+            <button id="exportIcoBtn" class="tool-btn"><i class="fas fa-file"></i> ICO</button>
+        </div>
+        <div class="tool-group">
+            <button id="addTextBtn" class="tool-btn"><i class="fas fa-font"></i> Текст</button>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <!-- Область рисования -->
+        <div class="canvas-container-wrapper" id="canvasContainer" style="position:relative;">
+            <canvas id="canvas" width="900" height="550" style="width:900px; height:550px;"></canvas>
+        </div>
+
+        <!-- Правая панель: Наклейки / GIF (Tenor/GIPHY) + Drag&Drop -->
+        <div class="sticker-panel">
+            <div class="drag-zone-info">
+                <i class="fas fa-cloud-upload-alt"></i> Перетащите изображение сюда или на холст
+            </div>
+            <div class="search-box">
+                <i class="fab fa-gripfire" style="color:#0078d4;"></i>
+                <input type="text" id="gifSearchInput" placeholder="Поиск GIF / наклеек... (GIPHY)">
+                <button id="searchGifBtn"><i class="fas fa-search"></i> Найти</button>
+            </div>
+            <div class="section-title"><i class="fas fa-sticker-mosaic"></i> Популярные гифки и наклейки</div>
+            <div id="gifResults" class="gif-grid">
+                <!-- сюда динамически загружаются гифки -->
+                <div style="grid-column:1/-1; text-align:center; color:gray;">🔍 Нажмите поиск, например "cat"</div>
+            </div>
+            <hr>
+            <div class="section-title"><i class="fas fa-icons"></i> Встроенные наклейки (стикеры)</div>
+            <div id="stickersGrid" class="stickers-grid">
+                <!-- Эмодзи стикеры в виде картинок-символов (SVG эмуляция) -->
+            </div>
+            <div class="section-title"><i class="fas fa-images"></i> Загрузить фото на холст (слой)</div>
+            <div style="display:flex; gap:10px;">
+                <label class="tool-btn" style="background:#e6e6e6;"><i class="fas fa-folder-open"></i> Выбрать фото<input type="file" id="uploadImageInput" accept="image/*" style="display:none;"></label>
+                <button id="loadBgBtn" class="tool-btn" style="background:#e6e6e6;"><i class="fas fa-layer-group"></i> Как фон</button>
+            </div>
+            <div class="drag-zone-info" style="margin-top: auto;">
+                💡 Совет: используйте выделение → двигайте, масштабируйте объекты. Наложение слоёв легко через перетаскивание объектов. <br>
+                ⌨️ Горячие клавиши: Ctrl+Z (отмена), Ctrl+X (вырезать), Del (удалить)
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- ИНИЦИАЛИЗАЦИЯ FABRIC CANVAS ----------
+    const canvasElement = document.getElementById('canvas');
+    let canvas = new fabric.Canvas('canvas', {
+        backgroundColor: 'white',
+        preserveObjectStacking: true,
+        width: 900,
+        height: 550
+    });
+
+    // Настройка рисования (кисть)
+    canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+    canvas.freeDrawingBrush.color = '#000000';
+    canvas.freeDrawingBrush.width = 5;
+    canvas.isDrawingMode = true;   // сначала рисование активно
+
+    // UI элементы
+    const brushBtn = document.getElementById('brushBtn');
+    const selectBtn = document.getElementById('selectBtn');
+    const deleteObjBtn = document.getElementById('deleteObjBtn');
+    const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+    const brushColorPicker = document.getElementById('brushColor');
+    const brushSizeSlider = document.getElementById('brushSize');
+    const sizeSpan = document.getElementById('sizeValue');
+    const exportPng = document.getElementById('exportPngBtn');
+    const exportJpg = document.getElementById('exportJpgBtn');
+    const exportBmp = document.getElementById('exportBmpBtn');
+    const exportIco = document.getElementById('exportIcoBtn');
+    const addTextBtn = document.getElementById('addTextBtn');
+    const gifSearchInput = document.getElementById('gifSearchInput');
+    const searchGifBtn = document.getElementById('searchGifBtn');
+    const gifResultsDiv = document.getElementById('gifResults');
+    const uploadImageInput = document.getElementById('uploadImageInput');
+    const loadBgBtn = document.getElementById('loadBgBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const resizeCanvasBtn = document.getElementById('resizeCanvasBtn');
+
+    // ---------- СТЕК ИСТОРИИ (UNDO/REDO) ----------
+    let historyStack = [];
+    let historyIndex = -1;
+    const MAX_HISTORY = 50;
+
+    function saveState() {
+        // Убираем выделение перед сохранением для чистоты
+        const active = canvas.getActiveObject();
+        canvas.discardActiveObject();
+        canvas.renderAll();
+        const json = JSON.stringify(canvas.toJSON(['selectable', 'hasControls', 'hasBorders', 'clipPath']));
+        // Если мы не в конце истории, обрезаем будущие состояния
+        if (historyIndex < historyStack.length - 1) {
+            historyStack = historyStack.slice(0, historyIndex + 1);
+        }
+        historyStack.push(json);
+        if (historyStack.length > MAX_HISTORY) historyStack.shift();
+        else historyIndex = historyStack.length - 1;
+        // Восстанавливаем выделение если было
+        if (active) canvas.setActiveObject(active);
+        updateUndoRedoButtons();
+    }
+
+    function undo() {
+        if (historyIndex > 0) {
+            historyIndex--;
+            loadState(historyStack[historyIndex]);
+            updateUndoRedoButtons();
+        }
+    }
+
+    function redo() {
+        if (historyIndex < historyStack.length - 1) {
+            historyIndex++;
+            loadState(historyStack[historyIndex]);
+            updateUndoRedoButtons();
+        }
+    }
+
+    function loadState(json) {
+        canvas.loadFromJSON(json, () => {
+            canvas.renderAll();
+            // После загрузки сбрасываем режим рисования и выделения (сохраняем текущий режим)
+            if (canvas.isDrawingMode) {
+                // сохраняем режим кисти
+            } else {
+                canvas.selection = true;
+            }
+            canvas.renderAll();
+        });
+    }
+
+    function updateUndoRedoButtons() {
+        undoBtn.disabled = (historyIndex <= 0);
+        redoBtn.disabled = (historyIndex >= historyStack.length - 1);
+        undoBtn.style.opacity = undoBtn.disabled ? "0.5" : "1";
+        redoBtn.style.opacity = redoBtn.disabled ? "0.5" : "1";
+    }
+
+    // Сохраняем состояние при каждом действии, которое меняет холст
+    function autoSave() {
+        saveState();
+    }
+
+    // Отслеживаем изменения
+    canvas.on('object:added', autoSave);
+    canvas.on('object:removed', autoSave);
+    canvas.on('object:modified', autoSave);
+    canvas.on('path:created', autoSave);
+    canvas.on('text:changed', autoSave);
+    // При рисовании кистью тоже сохраняем
+    canvas.on('mouse:up', (e) => {
+        if (canvas.isDrawingMode) autoSave();
+    });
+
+    // Кнопки undo/redo
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
+
+    // Сохраняем начальное состояние
+    saveState();
+
+    // Обновление кисти
+    function updateBrush() {
+        canvas.freeDrawingBrush.color = brushColorPicker.value;
+        canvas.freeDrawingBrush.width = parseInt(brushSizeSlider.value, 10);
+        sizeSpan.innerText = canvas.freeDrawingBrush.width + 'px';
+    }
+    brushColorPicker.addEventListener('input', updateBrush);
+    brushSizeSlider.addEventListener('input', updateBrush);
+    updateBrush();
+
+    // Режимы: рисование / выделение
+    brushBtn.addEventListener('click', () => {
+        canvas.isDrawingMode = true;
+        brushBtn.classList.add('active');
+        selectBtn.classList.remove('active');
+        canvas.selection = false;
+        canvas.forEachObject(obj => obj.selectable = false);
+        canvas.renderAll();
+        autoSave();
+    });
+    selectBtn.addEventListener('click', () => {
+        canvas.isDrawingMode = false;
+        selectBtn.classList.add('active');
+        brushBtn.classList.remove('active');
+        canvas.selection = true;
+        canvas.forEachObject(obj => obj.selectable = true);
+        canvas.renderAll();
+        autoSave();
+    });
+    // Удаление выбранного объекта
+    deleteObjBtn.addEventListener('click', () => {
+        const activeObj = canvas.getActiveObject();
+        if (activeObj) {
+            canvas.remove(activeObj);
+            canvas.discardActiveObject();
+            canvas.renderAll();
+            autoSave();
+        } else {
+            alert("Выберите объект (нажмите на него в режиме выделения)");
+        }
+    });
+    // Очистка всего холста (кроме белого фона)
+    clearCanvasBtn.addEventListener('click', () => {
+        canvas.clear();
+        canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
+        canvas.renderAll();
+        autoSave();
+    });
+
+    // Добавить текст
+    addTextBtn.addEventListener('click', () => {
+        const text = new fabric.IText('Новый текст', {
+            left: 100,
+            top: 100,
+            fontFamily: 'Segoe UI',
+            fontSize: 32,
+            fill: brushColorPicker.value,
+            editable: true,
+            hasControls: true,
+            selectable: true
+        });
+        canvas.add(text);
+        canvas.setActiveObject(text);
+        canvas.renderAll();
+        autoSave();
+    });
+
+    // ---------- ИЗМЕНЕНИЕ РАЗМЕРА ХОЛСТА (как в Paint) ----------
+    resizeCanvasBtn.addEventListener('click', () => {
+        let newWidth = prompt("Введите новую ширину холста (в пикселях):", canvas.width);
+        let newHeight = prompt("Введите новую высоту холста (в пикселях):", canvas.height);
+        if (newWidth && newHeight) {
+            newWidth = parseInt(newWidth, 10);
+            newHeight = parseInt(newHeight, 10);
+            if (isNaN(newWidth) || isNaN(newHeight) || newWidth < 10 || newHeight < 10) {
+                alert("Введите корректные числа больше 10");
+                return;
+            }
+            // Изменяем размер холста
+            canvas.setWidth(newWidth);
+            canvas.setHeight(newHeight);
+            canvas.renderAll();
+            autoSave();
+        }
+    });
+
+    // ---------- Функция добавления картинки из URL (гифка / наклейка) ----------
+    function addImageFromUrl(url, x = null, y = null) {
+        fabric.Image.fromURL(url, (img) => {
+            if (!img) return;
+            // Масштабируем при необходимости (не больше 300px)
+            const maxDim = 300;
+            let scale = 1;
+            if (img.width > maxDim || img.height > maxDim) {
+                scale = Math.min(maxDim / img.width, maxDim / img.height);
+                img.scale(scale);
+            }
+            img.set({
+                left: x !== null ? x : canvas.width / 2 - (img.width * scale) / 2,
+                top: y !== null ? y : canvas.height / 2 - (img.height * scale) / 2,
+                selectable: true,
+                hasControls: true,
+                hasBorders: true,
+                cornerColor: '#0078d4'
+            });
+            canvas.add(img);
+            canvas.setActiveObject(img);
+            canvas.renderAll();
+            autoSave();
+        }, { crossOrigin: 'Anonymous' });
+    }
+
+    // ---------- Загрузка через drag and drop (фотографии) на холст ----------
+    function handleFileDrop(file) {
+        if (!file.type.match('image.*')) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            fabric.Image.fromURL(e.target.result, (img) => {
+                let scale = 1;
+                const maxW = 350, maxH = 350;
+                if (img.width > maxW || img.height > maxH) {
+                    scale = Math.min(maxW / img.width, maxH / img.height);
+                    img.scale(scale);
+                }
+                img.set({
+                    left: canvas.width / 2 - (img.width * scale) / 2,
+                    top: canvas.height / 2 - (img.height * scale) / 2,
+                    selectable: true,
+                    hasControls: true
+                });
+                canvas.add(img);
+                canvas.renderAll();
+                autoSave();
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // События drag and drop на canvas и контейнер
+    const dropZone = document.getElementById('canvasContainer');
+    canvasElement.addEventListener('dragover', (e) => e.preventDefault());
+    canvasElement.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) handleFileDrop(file);
+    });
+    dropZone.addEventListener('dragover', (e) => e.preventDefault());
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.match('image.*')) handleFileDrop(file);
+    });
+    // Кнопка загрузки с компьютера (выбор файла)
+    uploadImageInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) handleFileDrop(e.target.files[0]);
+        uploadImageInput.value = '';
+    });
+    // Кнопка "Как фон" - загружаем изображение как задний план (background)
+    loadBgBtn.addEventListener('click', () => {
+        let fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                fabric.Image.fromURL(ev.target.result, (img) => {
+                    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                        scaleX: canvas.width / img.width,
+                        scaleY: canvas.height / img.height,
+                        originX: 'left',
+                        originY: 'top',
+                        left: 0,
+                        top: 0
+                    });
+                    canvas.renderAll();
+                    autoSave();
+                });
+            };
+            reader.readAsDataURL(file);
+        };
+        fileInput.click();
+    });
+
+    // ---------- GIPHY API ПОИСК ГИФОК (популярный сервис, аналог Tenor) ----------
+    const GIPHY_API_KEY = 'dc6zaTOxFJmzC';  // публичный ключ GIPHY для демонстрации
+    async function searchGiphy(query) {
+        if (!query.trim()) return;
+        gifResultsDiv.innerHTML = '<div style="grid-column:1/-1; text-align:center;"><i class="fas fa-spinner fa-pulse"></i> Загрузка...</div>';
+        try {
+            const url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=g`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.data && data.data.length) {
+                displayGifs(data.data);
+            } else {
+                gifResultsDiv.innerHTML = '<div style="grid-column:1/-1; text-align:center;">😢 Гифки не найдены</div>';
+            }
+        } catch (err) {
+            gifResultsDiv.innerHTML = '<div style="grid-column:1/-1; text-align:center;">⚠️ Ошибка API GIPHY, проверьте соединение</div>';
+            console.error(err);
+        }
+    }
+
+    function displayGifs(gifs) {
+        gifResultsDiv.innerHTML = '';
+        gifs.forEach(gif => {
+            const imgUrl = gif.images.fixed_height_small.url;
+            const div = document.createElement('div');
+            div.className = 'gif-item';
+            const img = document.createElement('img');
+            img.src = imgUrl;
+            img.alt = gif.title || 'gif';
+            div.appendChild(img);
+            div.addEventListener('click', () => {
+                addImageFromUrl(gif.images.fixed_height.url);
+            });
+            gifResultsDiv.appendChild(div);
+        });
+    }
+
+    searchGifBtn.addEventListener('click', () => {
+        searchGiphy(gifSearchInput.value);
+    });
+    gifSearchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchGiphy(gifSearchInput.value);
+    });
+    // Предзагрузка популярных котиков при старте
+    searchGiphy('cute cat');
+
+    // ---------- Встроенные наклейки (векторные и эмодзи-картинки) ----------
+    const stickersList = [
+        '❤️', '🔥', '⭐', '👍', '😂', '😍', '🎨', '🌈', '✨', '🍕', '🐱', '🐶', '🐼', '🌸', '💎'
+    ];
+    const stickersGrid = document.getElementById('stickersGrid');
+    function createStickerEmoji(emoji) {
+        const canvasTemp = document.createElement('canvas');
+        canvasTemp.width = 120;
+        canvasTemp.height = 120;
+        const ctx = canvasTemp.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 120, 120);
+        ctx.font = 'bold 70px "Segoe UI Emoji"';
+        ctx.fillStyle = '#222222';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 60, 65);
+        return canvasTemp.toDataURL();
+    }
+    stickersList.forEach(emoji => {
+        const imgUrl = createStickerEmoji(emoji);
+        const div = document.createElement('div');
+        div.className = 'sticker-item';
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        div.appendChild(img);
+        div.addEventListener('click', () => {
+            addImageFromUrl(imgUrl);
+        });
+        stickersGrid.appendChild(div);
+    });
+
+    // Дополнительные стикеры из готовых URL
+    const extraStickers = [
+        'https://cdn-icons-png.flaticon.com/512/1995/1995572.png',
+        'https://cdn-icons-png.flaticon.com/512/1047/1047711.png',
+        'https://cdn-icons-png.flaticon.com/512/616/616408.png',
+        'https://cdn-icons-png.flaticon.com/512/2922/2922561.png'
+    ];
+    extraStickers.forEach(url => {
+        fabric.Image.fromURL(url, (img) => {
+            const div = document.createElement('div');
+            div.className = 'sticker-item';
+            const miniImg = document.createElement('img');
+            miniImg.src = url;
+            miniImg.style.objectFit = 'contain';
+            div.appendChild(miniImg);
+            div.addEventListener('click', () => {
+                addImageFromUrl(url);
+            });
+            stickersGrid.appendChild(div);
+        }, { crossOrigin: 'Anonymous' });
+    });
+
+    // ---------- ЭКСПОРТ В ФОРМАТЫ (PNG/JPG/BMP/ICO) + ЗАПРОС ИМЕНИ ФАЙЛА ----------
+    function exportImage(format, mimeType, extension) {
+        let fileName = prompt("Введите имя файла (без расширения):", "my_paint");
+        if (!fileName) return;
+        fileName = fileName.replace(/[^a-z0-9а-яё\s_-]/gi, '');
+        if (fileName === "") fileName = "paint_image";
+        let dataURL;
+        if (format === 'jpg') {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            ctx.drawImage(canvas.getElement(), 0, 0);
+            dataURL = tempCanvas.toDataURL('image/jpeg', 0.95);
+        } else if (format === 'bmp') {
+            try {
+                dataURL = canvas.toDataURL('image/bmp');
+            } catch(e) {
+                alert("Ваш браузер не поддерживает BMP напрямую, сохраняем как PNG с расширением .bmp");
+                dataURL = canvas.toDataURL('image/png');
+                extension = 'bmp';
+            }
+        } else if (format === 'ico') {
+            dataURL = canvas.toDataURL('image/png');
+            extension = 'ico';
+        } else {
+            dataURL = canvas.toDataURL('image/png');
+        }
+        const link = document.createElement('a');
+        link.download = `${fileName}.${extension}`;
+        link.href = dataURL;
+        link.click();
+    }
+
+    exportPng.addEventListener('click', () => exportImage('png', 'image/png', 'png'));
+    exportJpg.addEventListener('click', () => exportImage('jpg', 'image/jpeg', 'jpg'));
+    exportBmp.addEventListener('click', () => exportImage('bmp', 'image/bmp', 'bmp'));
+    exportIco.addEventListener('click', () => exportImage('ico', 'image/x-icon', 'ico'));
+
+    // ---------- ГОРЯЧИЕ КЛАВИШИ (Ctrl+Z, Ctrl+X, Delete) И ДОПОЛНИТЕЛЬНЫЕ ----------
+    // Буфер для вырезания (копирования) объекта
+    let clipboard = null;
+    window.addEventListener('keydown', (e) => {
+        // Ctrl+Z (отмена)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            undo();
+        }
+        // Ctrl+Y (redo)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+            e.preventDefault();
+            redo();
+        }
+        // Ctrl+X (вырезать)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+            e.preventDefault();
+            const activeObj = canvas.getActiveObject();
+            if (activeObj) {
+                // Клонируем объект в clipboard
+                activeObj.clone((cloned) => {
+                    clipboard = cloned;
+                });
+                canvas.remove(activeObj);
+                canvas.discardActiveObject();
+                canvas.renderAll();
+                autoSave();
+            }
+        }
+        // Delete (удалить)
+        if (e.key === 'Delete') {
+            e.preventDefault();
+            const activeObj = canvas.getActiveObject();
+            if (activeObj) {
+                canvas.remove(activeObj);
+                canvas.discardActiveObject();
+                canvas.renderAll();
+                autoSave();
+            }
+        }
+        // Ctrl+V (вставить) - небольшая дополнительная функция
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            e.preventDefault();
+            if (clipboard) {
+                clipboard.clone((clonedObj) => {
+                    clonedObj.set({
+                        left: (canvas.width / 2) - (clonedObj.width * (clonedObj.scaleX || 1)) / 2,
+                        top: (canvas.height / 2) - (clonedObj.height * (clonedObj.scaleY || 1)) / 2,
+                        selectable: true,
+                        hasControls: true
+                    });
+                    canvas.add(clonedObj);
+                    canvas.setActiveObject(clonedObj);
+                    canvas.renderAll();
+                    autoSave();
+                });
+            }
+        }
+    });
+
+    // Фокус на canvas для корректной работы клавиш (нужно кликнуть по холсту)
+    canvasElement.setAttribute('tabindex', '0');
+    canvasElement.style.outline = 'none';
+    canvasElement.addEventListener('click', () => canvasElement.focus());
+
+    // Небольшой приветственный текст
+    setTimeout(() => {
+        if (canvas.getObjects().length === 0) {
+            const welcomeText = new fabric.Text('✨ Paint Online ✨\nПеретаскивай изображения,\nнаклейки & гифки\n\nCtrl+Z / Ctrl+X / Del', {
+                left: 50,
+                top: 30,
+                fontSize: 22,
+                fontFamily: 'Segoe UI',
+                fill: '#3d3d3d',
+                backgroundColor: 'rgba(255,255,240,0.7)',
+                selectable: true
+            });
+            canvas.add(welcomeText);
+            canvas.renderAll();
+            autoSave();
+        }
+    }, 300);
+</script>
+</body>
+</html>
